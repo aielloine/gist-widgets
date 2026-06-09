@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            padding: 16px; margin: 0; color: #374151; background: #f9fafb; 
+        }
+        .card-container { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;}
+        .card { 
+            background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            padding: 16px; min-width: 280px; flex: 1; border-top: 4px solid #3b82f6; 
+        }
+        .card.prod { border-top-color: #10b981; } /* Vert pour la Prod */
+        .card.test { border-top-color: #f59e0b; } /* Orange pour le Test */
+        
+        .card-title { 
+            font-weight: 600; font-size: 1.1em; margin-bottom: 16px; display: flex; 
+            align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.05em; 
+        }
+        .field { margin-bottom: 12px; font-size: 0.9em; }
+        .label { font-weight: 600; color: #6b7280; display: block; margin-bottom: 4px; font-size: 0.85em; text-transform: uppercase;}
+        .value { word-break: break-all; }
+        
+        .domain-link { color: #2563eb; text-decoration: none; display: inline-block; margin-bottom: 2px; font-weight: 500;}
+        .domain-link:hover { text-decoration: underline; }
+        
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.85em; font-weight: 600; }
+        .status-actif { background: #d1fae5; color: #065f46; }
+        .status-inactif { background: #fee2e2; color: #991b1b; }
+        
+        .empty-state { color: #6b7280; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div id="app" class="card-container">
+        <div class="empty-state">Sélectionnez une application dans la liste pour voir ses instances...</div>
+    </div>
+
+    <script>
+        // On demande à Grist de mapper ces colonnes avec celles de la table
+        grist.ready({
+            columns: [
+                {name: "Serveur", type: "Choice", title: "Environnement (ex: Production)"},
+                {name: "Domaines", type: "Text", title: "Noms de domaine"},
+                {name: "IP", type: "Text", title: "IP Locale"},
+                {name: "Statut", type: "Choice", title: "Statut (Actif/Inactif)"}
+            ],
+            requiredAccess: 'read table'
+        });
+
+        grist.onRecords(function(records) {
+            const app = document.getElementById('app');
+            app.innerHTML = '';
+
+            if (!records || records.length === 0) {
+                app.innerHTML = '<div class="empty-state">Aucun déploiement enregistré pour cette application.</div>';
+                return;
+            }
+
+            // Mappe les colonnes selon la configuration de l'utilisateur dans Grist
+            const mapped = grist.mapColumnNames(records);
+            if (!mapped) {
+                app.innerHTML = '<div class="empty-state">⚠️ Veuillez mapper les colonnes dans les paramètres du widget (panneau de droite).</div>';
+                return;
+            }
+
+            mapped.forEach(rec => {
+                // Détecte si c'est la prod pour mettre la bordure en vert
+                const serverName = rec.Serveur || 'Inconnu';
+                const isProd = serverName.toLowerCase().includes('prod');
+                const cardClass = isProd ? 'prod' : 'test';
+                
+                // Gestion du statut
+                const statusText = rec.Statut || 'Non défini';
+                const isActif = (statusText.toLowerCase() === 'actif' || statusText.includes('✅'));
+                const statusClass = isActif ? 'status-actif' : 'status-inactif';
+                
+                // Gestion des domaines multiples (séparés par un saut de ligne)
+                const domainsRaw = rec.Domaines || '';
+                const domainsList = domainsRaw.split('\n').filter(d => d.trim() !== '');
+                let domainsHtml = '<span class="empty-state">Aucun domaine</span>';
+                
+                if (domainsList.length > 0) {
+                    domainsHtml = domainsList.map(d => {
+                        // S'assure qu'il y a http ou https pour que le lien cliquable fonctionne
+                        const url = (d.startsWith('http') || d.startsWith('https')) ? d : 'https://' + d;
+                        return `<a href="${url}" target="_blank" class="domain-link">${d}</a>`;
+                    }).join('<br>');
+                }
+
+                // Création de la carte
+                const card = document.createElement('div');
+                card.className = `card ${cardClass}`;
+                card.innerHTML = `
+                    <div class="card-title">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+                        ${serverName}
+                    </div>
+                    <div class="field">
+                        <span class="label">Statut</span>
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="field">
+                        <span class="label">Accès Web</span>
+                        <div class="value">${domainsHtml}</div>
+                    </div>
+                    <div class="field">
+                        <span class="label">Configuration Réseau (IP Locale)</span>
+                        <div class="value">${rec.IP || '<span class="empty-state">Non renseignée</span>'}</div>
+                    </div>
+                `;
+                app.appendChild(card);
+            });
+        });
+    </script>
+</body>
+</html>
