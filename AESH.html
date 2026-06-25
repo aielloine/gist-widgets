@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Emploi du temps - AESH</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 10px; }
+    .calendar { display: grid; grid-template-columns: 60px repeat(5, 1fr); gap: 1px; background: #ccc; border: 1px solid #ccc; }
+    .header, .time-axis, .day-col { background: #fff; }
+    .header { text-align: center; padding: 10px; font-weight: bold; background: #f9f9f9; }
+    .time-axis { position: relative; min-height: 600px; /* Echelle: 1min = 1.5px */ }
+    .day-col { position: relative; }
+    .event { position: absolute; left: 2px; right: 2px; border-radius: 4px; padding: 5px; font-size: 0.85em; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.1); }
+    .event-title { font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<div class="calendar" id="calendar">
+  <div class="header">Heure</div>
+  <div class="header">Lundi</div><div class="header">Mardi</div><div class="header">Mercredi</div><div class="header">Jeudi</div><div class="header">Vendredi</div>
+  <div class="time-axis" id="axis"></div>
+  <div class="day-col" id="col-Lundi"></div>
+  <div class="day-col" id="col-Mardi"></div>
+  <div class="day-col" id="col-Mercredi"></div>
+  <div class="day-col" id="col-Jeudi"></div>
+  <div class="day-col" id="col-Vendredi"></div>
+</div>
+
+<script>
+  const PIXELS_PER_MINUTE = 1.5;
+  const START_HOUR = 8; // Commence à 8h00
+  const START_MINUTES = START_HOUR * 60;
+
+  function timeToMinutes(timeStr) {
+    if (!timeStr) return 0;
+    // Gère "08:30", "8h30", etc.
+    const parts = String(timeStr).match(/(\d{1,2})[h:](\d{2})/i);
+    if (parts) return parseInt(parts[1]) * 60 + parseInt(parts[2]);
+    return 0;
+  }
+
+  grist.ready({
+    requiredAccess: 'read table',
+    columns: [
+      { name: "Jour", type: "Choice" },
+      { name: "Heure_debut", type: "Any" },
+      { name: "Heure_fin", type: "Any" },
+      { name: "Activite_Nom", type: "Text" },
+      { name: "Activite_Couleur", type: "Text" },
+      { name: "Eleves", type: "Text" } // ex: "Mama, Momo"
+    ]
+  });
+
+  grist.onRecords(function(records) {
+    const mapped = grist.mapColumnNames(records);
+    if (!mapped) return;
+
+    ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'].forEach(j => {
+      document.getElementById('col-' + j).innerHTML = '';
+    });
+
+    mapped.forEach(rec => {
+      if (!rec.Jour || !rec.Heure_debut || !rec.Heure_fin) return;
+      
+      const startMin = timeToMinutes(rec.Heure_debut);
+      const endMin = timeToMinutes(rec.Heure_fin);
+      
+      const top = (startMin - START_MINUTES) * PIXELS_PER_MINUTE;
+      const height = (endMin - startMin) * PIXELS_PER_MINUTE;
+
+      const col = document.getElementById('col-' + rec.Jour);
+      if (col) {
+        const div = document.createElement('div');
+        div.className = 'event';
+        div.style.top = top + 'px';
+        div.style.height = height + 'px';
+        div.style.backgroundColor = rec.Activite_Couleur || '#ADD8E6';
+        
+        div.innerHTML = `
+          <div class="event-title">${rec.Eleves || ''}</div>
+          <div>${rec.Activite_Nom || ''}</div>
+          <div style="font-size: 0.8em; margin-top: 2px;">${rec.Heure_debut} - ${rec.Heure_fin}</div>
+        `;
+        col.appendChild(div);
+      }
+    });
+  });
+</script>
+</body>
+</html>
