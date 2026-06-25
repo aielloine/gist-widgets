@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Emploi du temps - Élève</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    body { font-family: 'Comic Sans MS', sans-serif; margin: 0; padding: 10px; }
+    .week-container { display: flex; gap: 10px; width: 100%; justify-content: space-between; }
+    .day-column { flex: 1; border: 2px solid #333; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+    .day-header { text-align: center; font-weight: bold; padding: 10px; background-color: #f0f0f0; border-bottom: 2px solid #333; text-transform: uppercase; }
+    .activity-list { display: flex; flex-direction: column; flex-grow: 1; background: #fff; }
+    .activity-item { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px 5px; border-bottom: 1px solid #ccc; text-align: center; }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-picto { max-width: 60px; max-height: 60px; margin-bottom: 5px; object-fit: contain; }
+    .activity-name { font-size: 0.9em; }
+  </style>
+</head>
+<body>
+
+<div class="week-container" id="schedule"></div>
+
+<script>
+  const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+
+  grist.ready({
+    requiredAccess: 'read table',
+    columns: [
+      { name: "Jour", type: "Choice" },
+      { name: "Heure_debut", type: "Any" }, 
+      { name: "Activite_Nom", type: "Text" },
+      { name: "Activite_Picto", type: "Text" } // URL de l'image
+    ]
+  });
+
+  grist.onRecords(function(records) {
+    const mapped = grist.mapColumnNames(records);
+    if (!mapped) return;
+
+    const scheduleDiv = document.getElementById('schedule');
+    scheduleDiv.innerHTML = '';
+
+    // Grouper par jour
+    const byDay = {};
+    JOURS.forEach(j => byDay[j] = []);
+
+    mapped.forEach(rec => {
+      if (rec.Jour && byDay[rec.Jour]) {
+        byDay[rec.Jour].push(rec);
+      }
+    });
+
+    // Trier et générer l'affichage
+    JOURS.forEach(jour => {
+      const col = document.createElement('div');
+      col.className = 'day-column';
+      
+      let html = `<div class="day-header">${jour}</div><div class="activity-list">`;
+      
+      // Tri basique par heure (suppose un format HH:MM)
+      const dayRecords = byDay[jour].sort((a, b) => String(a.Heure_debut).localeCompare(String(b.Heure_debut)));
+      
+      dayRecords.forEach(rec => {
+        const pictoHtml = rec.Activite_Picto ? `<img src="${rec.Activite_Picto}" class="activity-picto" alt="picto">` : `<div class="activity-picto" style="width:60px;height:60px;background:#eee;"></div>`;
+        html += `
+          <div class="activity-item">
+            ${pictoHtml}
+            <div class="activity-name">${rec.Activite_Nom || ''}</div>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+      col.innerHTML = html;
+      scheduleDiv.appendChild(col);
+    });
+  });
+</script>
+</body>
+</html>
