@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Emploi du temps - Global Jour</title>
+  <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 10px; }
+    #calendar-container { overflow-x: auto; }
+    .calendar { display: grid; gap: 1px; background: #ccc; border: 1px solid #ccc; min-width: 800px; }
+    .header, .time-axis, .student-col { background: #fff; }
+    .header { text-align: center; padding: 10px; font-weight: bold; background: #e0e0e0; border-bottom: 2px solid #999; }
+    .time-axis { position: relative; min-height: 700px; border-right: 1px solid #ccc; }
+    .student-col { position: relative; min-width: 120px; }
+    .event { position: absolute; left: 1px; right: 1px; border-radius: 2px; padding: 4px; font-size: 0.8em; overflow: hidden; border: 1px solid rgba(0,0,0,0.2); text-align: center; display: flex; flex-direction: column; justify-content: center; }
+  </style>
+</head>
+<body>
+
+<div id="calendar-container">
+  <div class="calendar" id="calendar">
+    </div>
+</div>
+
+<script>
+  const PIXELS_PER_MINUTE = 2; // Plus grand pour plus de lisibilité
+  const START_HOUR = 8; 
+  const START_MINUTES = START_HOUR * 60;
+
+  function timeToMinutes(timeStr) {
+    if (!timeStr) return 0;
+    const parts = String(timeStr).match(/(\d{1,2})[h:](\d{2})/i);
+    if (parts) return parseInt(parts[1]) * 60 + parseInt(parts[2]);
+    return 0;
+  }
+
+  grist.ready({
+    requiredAccess: 'read table',
+    columns: [
+      { name: "Heure_debut", type: "Any" },
+      { name: "Heure_fin", type: "Any" },
+      { name: "Activite_Nom", type: "Text" },
+      { name: "Activite_Couleur", type: "Text" },
+      { name: "Eleves", type: "Text" }, // Important: peut contenir plusieurs noms séparés par des virgules
+      { name: "Intervenant", type: "Text" }
+    ]
+  });
+
+  grist.onRecords(function(records) {
+    const mapped = grist.mapColumnNames(records);
+    if (!mapped) return;
+
+    // 1. Extraire la liste unique de tous les élèves de la journée
+    const allStudents = new Set();
+    mapped.forEach(rec => {
+      if (rec.Eleves) {
+        rec.Eleves.split(',').map(s => s.trim()).forEach(s => {
+          if(s) allStudents.add(s);
+        });
+      }
+    });
+    const studentsArray = Array.from(allStudents).sort(); // Tri alphabétique
+
+    const calendar = document.getElementById('calendar');
+    
+    // Configuration de la grille CSS dynamique
+    calendar.style.gridTemplateColumns = `80px repeat(${studentsArray.length}, 1fr)`;
+    
+    // Générer les en-têtes
+    let html = `<div class="header">Heures</div>`;
+    studentsArray.forEach(student => {
+      html += `<div class="header">${student}</div>`;
+    });
+
+    // Générer les colonnes (Axe du temps + 1 colonne par élève)
+    html += `<div class="time-axis" id="axis"></div>`;
+    studentsArray.forEach(student => {
+      html += `<div class="student-col" id="col-${student}"></div>`;
+    });
+    
+    calendar.innerHTML = html;
+
+    // 2. Placer les événements
+    mapped.forEach(rec => {
+      if (!rec.Heure_debut || !rec.Heure_fin || !rec.Eleves) return;
+      
+      const startMin = timeToMinutes(rec.Heure_debut);
+      const endMin = timeToMinutes(rec.Heure_fin);
+      const top = (startMin - START_MINUTES) * PIXELS_PER_MINUTE;
+      const height = (endMin - startMin) * PIXELS_PER_MINUTE;
+
+      const eventEleves = rec.Eleves.split(',').map(s => s.trim());
+
+      // Dupliquer le bloc dans chaque colonne d'élève concerné
+      eventEleves.forEach(student => {
+        const col = document.getElementById('col-' + student);
+        if (col) {
+          const div = document.createElement('div');
+          div.className = 'event';
+          div.style.top = top + 'px';
+          div.style.height = height + 'px';
+          div.style.backgroundColor = rec.Activite_Couleur || '#fff';
+          
+          div.innerHTML = `
+            <strong>${rec.Activite_Nom || ''}</strong>
+            ${rec.Intervenant ? `<span>(${rec.Intervenant})</span>` : ''}
+          `;
+          col.appendChild(div);
+        }
+      });
+    });
+  });
+</script>
+</body>
+</html>
