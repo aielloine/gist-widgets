@@ -34,18 +34,18 @@
     return 0;
   }
 
-  grist.ready({
+grist.ready({
     requiredAccess: 'read table',
     columns: [
       { name: "Heure_debut", type: "Any" },
       { name: "Heure_fin", type: "Any" },
-      { name: "Activite_Nom", type: "Text" },
-      { name: "Activite_Couleur", type: "Text" },
-      { name: "Eleves", type: "Text" }, // Important: peut contenir plusieurs noms séparés par des virgules
-      { name: "Intervenant", type: "Text" }
+      { name: "Activite_Nom", type: "Any" },
+      { name: "Activite_Couleur", type: "Any" },
+      { name: "Eleves", type: "Any" },
+      { name: "Intervenant", type: "Any" }
     ]
   });
-
+  
   grist.onRecords(function(records) {
     const mapped = grist.mapColumnNames(records);
     if (!mapped) return;

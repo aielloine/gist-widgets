@@ -23,13 +23,13 @@
 <script>
   const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
 
-  grist.ready({
+grist.ready({
     requiredAccess: 'read table',
     columns: [
-      { name: "Jour", type: "Choice" },
+      { name: "Jour", type: "Any" },
       { name: "Heure_debut", type: "Any" }, 
-      { name: "Activite_Nom", type: "Text" },
-      { name: "Activite_Picto", type: "Text" } // URL de l'image
+      { name: "Activite_Nom", type: "Any" },
+      { name: "Activite_Picto", type: "Any" }
     ]
   });
 
